@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#122f46"><title>0050 均線支撐偵測 · Codex</title><link rel="stylesheet" href="style.css"><link rel="icon" href="icon.svg" type="image/svg+xml"></head>
+<body><header><div class="brand">0050 <span>支撐偵測</span></div><div class="tag">收盤研究工具 · Codex</div></header>
+<main><section class="intro"><div><p class="eyebrow">DAILY SUPPORT CHECK</p><h1>先看條件，再看風險。</h1><p>一次檢查8條均線。訊號成立後，仍需核對隔日開盤價。</p></div><button id="reload" class="secondary">重新載入資料</button></section>
+<div id="notice" class="notice" role="status">正在讀取日線資料…</div>
+<section class="toolbar"><label>偵測日期（台灣交易日）<select id="date"></select></label><label>觀察均線<select id="ma"></select></label><div id="metadata" class="meta"></div></section>
+<section class="metrics" id="metrics"></section>
+<section class="panel" style="border-left:6px solid #c5840c"><h2>額外確認：MA20／MA21是否持續向上？</h2><p><strong>未回測的觀察條件，不影響原候選判定或部位試算。</strong> 沒有固定通用日數；預設3交易日是本工具觀察設定，不是最佳參數。</p><label>連續上升次數（交易日）<select id="rise-days"><option value="2">2交易日</option><option value="3" selected>3交易日</option><option value="5">5交易日</option><option value="10">10交易日</option></select></label><div id="rise-result" aria-live="polite"></div><p class="meta">包含選定日收盤後的均線。連續3次上升需比較4個均線值；每天都必須嚴格高於前日，持平也不通過。這與「五日前後淨上升」不同。</p></section>
+<section class="panel"><div class="section-head"><div><h2>八條均線條件</h2><p>點選均線查看條件細節；通過不等於買入指令。</p></div><span class="pill">固定規則 v1.0</span></div><div id="cards" class="ma-grid"></div></section>
+<div class="split"><section class="panel"><div class="section-head"><h2 id="detail-title">MA21 檢查清單</h2><span id="result"></span></div><div id="checks"></div><div id="confirm" class="callout"></div></section>
+<section class="panel"><h2>隔日買价／部位試算</h2><p>選用直接訊號或確認訊號的風險價。買價未知時，輸入假設值只做情境試算。</p>
+<label>風險價來源<select id="mode"><option value="direct">選定日直接訊號</option><option value="confirm">當日已完成的確認訊號</option></select></label>
+<div class="inputs"><label>帳戶資金（新臺幣元）<input id="capital" type="number" min="1" step="1000" value="1000000" inputmode="decimal"></label><label>預估／實際隔日開盤價（元／股）<input id="open" type="number" min="0.01" step="0.01" placeholder="請自行輸入" inputmode="decimal"></label></div>
+<p id="price-unit" class="meta"></p><div id="sizing" aria-live="polite" class="sizing">輸入價格後計算</div><p class="meta">股數已向下取整，買入成本假設0.10%。券商最低手續費與成交滑價另計。實盤看到開盤價後，不保證仍能以該價成交。</p></section></div>
+<section class="panel"><h2>近期價格與均線</h2><p id="chart-label" class="meta"></p><div id="chart"></div><p class="meta">價格圖採分割配息調整值；歷史圖的價位不等於當時實際成交價。</p></section>
+<section class="panel rules"><h2>這個工具怎麼判斷？</h2>
+<details open><summary>觸線與收盤站回：含盤中貫穿嗎？</summary><p>參考前一交易日均線M。當日最低價須在0.98M～1.02M，收盤須≥M；容許盤中貫穿最多2%，但跌穿超過2%即使收復也排除。最低價停在均線上方2%內也符合。還須前日收盤≥M、目標均線與MA60五日上揚、當日收盤≥前日MA60。</p></details>
+<details><summary>直接進場與等待確認</summary><p>直接版在訊號後下一交易日開盤進場。確認版在原觸線後最多3交易日，首次收盤高於原訊號最高價，且当日最低不低於原訊號最低價，於再下一交易日開盤進場；等待中收盤跌破原風險價則失效。本工具偵測單日候選，不掌握你的持倉，不執行20日持倉排程，也不代表策略回測中的所有可執行交易。</p></details>
+<details><summary>風險價與取消條件</summary><p>S＝訊號最低價−0.5×前日ATR14。ATR是14交易日真實波幅的簡單平均。買價O≤S或(O−S)/O&gt;8%則取消。部位比例＝min(25%, 0.5%÷max(風險距離,2%))。風險預算0.5%、上限25%為研究設定，不是保證損失上限。</p><p>直接20日版只用S配置部位；破位退出版才在收盤&lt;S時次日開盤退出，最長持有20交易日。帳戶回撤8%停機需另行追蹤帳戶，本網頁沒有追蹤持倉、損益或自動停機。跳空可能讓損失超過預算。</p></details>
+<details><summary>資料日期、更新與限制</summary><p>資料由GitHub Actions在台灣時間週一至週五16:35嘗試更新，成功後重新發布；手機的重新載入按鈕只取得已發布版本，不會啟動行情抓取。GitHub排程可能延遲，公有儲存庫長期無活動可能停用排程。資料來源Yahoo Finance，異常零量列透過證交所月份資料核對；尚未完成全歷史官方對帳。更新失敗時保留已發布頁面，請務必看資料日期。</p><p>本工具不是即時行情或已驗證獲利策略；均線研究使用過歷史樣本，不代表未來最佳參數。</p></details>
+</section><footer>0050 Detector · Codex ｜ 所有運算在你的瀏覽器內完成，資金輸入不會傳送。<br>可部署於GitHub Pages，無需API密鑰。</footer></main>
+<script src="data.js"></script><script src="engine.js"></script><script src="app.js"></script></body></html>

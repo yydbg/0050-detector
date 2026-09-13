@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict'),E=require('../site/engine.js');
+const rows=Array.from({length:100},(_,i)=>({date:new Date(Date.UTC(2024,0,i+1)).toISOString().slice(0,10),open:100+i*.2,high:101+i*.2,low:99+i*.2,close:100+i*.2}));
+let a=E.enrich(rows),i=90,m=a[i-1].ma[21];
+// Set low at boundary, reclaim; MA60 and slopes are already rising.
+rows[i]={...rows[i],low:m*.98,open:m,close:m+.1,high:m+1};a=E.enrich(rows);assert.equal(E.detect(a,i,21).pass,true);
+rows[i].low=m*.979;assert.equal(E.detect(E.enrich(rows),i,21).pass,false);
+rows[i].low=m*.99;rows[i].close=m-.1;assert.equal(E.detect(E.enrich(rows),i,21).checks[3][1],false);
+assert.equal(E.size(98,99,1e6).valid,false);assert.equal(E.size(108,99,1e6).valid,false);
+assert.equal(E.size(101,99,1e6).fraction,.25);assert.equal(E.size(104,99,1e6).shares,Math.floor(1e6*.005/(5/104)/(104*1.001)));
+assert.equal(E.size(NaN,99,1e6).valid,false);
+const short=E.enrich(rows.slice(0,91));assert.deepEqual(E.detect(short,90,21),E.detect(E.enrich(rows),90,21));
+assert.throws(()=>E.validate({rows:[rows[0]]}));
+const crows=Array.from({length:90},(_,k)=>({date:new Date(Date.UTC(2024,0,k+1)).toISOString().slice(0,10),open:100+k*.2,high:101+k*.2,low:99+k*.2,close:100+k*.2}));
+const cm=E.enrich(crows)[84].ma[21];crows[85]={...crows[85],open:cm+.2,high:cm+.6,low:cm*.99,close:cm+.4};
+crows[86]={...crows[86],open:cm+.5,high:cm+1,low:cm,close:cm+.8};
+const confirmed=E.confirmation(E.enrich(crows),86,21);assert.equal(confirmed.status,'confirmed');assert.equal(confirmed.signal.date,crows[85].date);
+const stop=E.detect(E.enrich(crows),85,21).stop;crows[86]={...crows[86],open:stop-.1,high:stop+.1,low:stop-.3,close:stop-.2};
+assert.notEqual(E.confirmation(E.enrich(crows),86,21).status,'confirmed');
+console.log('PASS: touch boundaries, reclaim, price cancellations, sizing, confirmation/cancellation, no look-ahead');
+const trend=[100,102,104,103,102,101].map((v,k)=>({date:String(k),ma:{20:v}}));
+assert.equal(E.continuousRise(trend,5,20,3).pass,false);
+assert.equal(E.continuousRise(trend,2,20,2).pass,true);
+assert.equal(E.continuousRise([{date:'a',ma:{20:1}},{date:'b',ma:{20:1}}],1,20,1).pass,false);
+assert.equal(E.continuousRise(trend,1,20,3),null);
+console.log('PASS: extra unbacktested continuous-rise checks, strict equality and insufficient history');

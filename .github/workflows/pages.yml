@@ -4,7 +4,8 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: '35 8 * * 1-5'
+    # Asia/Taipei: 16:35, 18:35, 21:35. Later runs retry delayed vendor data.
+    - cron: '35 8,10,13 * * 1-5'
 permissions:
   contents: read
   pages: write
@@ -15,6 +16,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -28,6 +30,8 @@ jobs:
           node-version: '22'
       - name: Test calculation engine
         run: node tests/engine.test.cjs
+      - name: Test adjustment gap recovery
+        run: python -m unittest discover -s tests -p test_update_data.py
       - name: Update validated closing data
         run: python scripts/update_data.py
       - name: Validate published data

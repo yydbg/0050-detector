@@ -7,6 +7,25 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 TZ=dt.timezone(dt.timedelta(hours=8))
 
+def positive(value):
+    return isinstance(value,(int,float)) and math.isfinite(value) and value>0
+
+def adjustment_for(day,quotes,q,adj,action_days):
+    """Fill an interior adjustment gap only, never extrapolate over an action.
+    Prices always come from TWSE. Never forward-fill a missing market price.
+    """
+    if day in quotes:
+        k,_=quotes[day]
+        if positive(q['close'][k]) and positive(adj[k]):return adj[k]/q['close'][k],False
+    valid=[d for d,(k,_) in quotes.items() if positive(q['close'][k]) and positive(adj[k])]
+    left=max((d for d in valid if d<day),default=None)
+    right=min((d for d in valid if d>day),default=None)
+    if left is None or right is None:raise ValueError(f'Adjustment unavailable without both neighbours: {day}')
+    if (right-left).days>7 or any(left<d<=right for d in action_days):raise ValueError(f'Unsafe adjustment gap: {day}')
+    li=quotes[left][0];ri=quotes[right][0];a=adj[li]/q['close'][li];b=adj[ri]/q['close'][ri]
+    if not math.isclose(a,b,rel_tol=1e-6,abs_tol=1e-8):raise ValueError(f'Adjustment changes across gap: {day}')
+    return a,True
+
 def get(url):
     last=None
     for wait in [0,2,5]:
@@ -22,6 +41,7 @@ def build(now=None):
     cutoff=now.date() if now.hour>=15 else now.date()-dt.timedelta(days=1)
     result=get('https://query1.finance.yahoo.com/v8/finance/chart/0050.TW?range=2y&interval=1d&events=div%2Csplits')['chart']['result'][0]
     q=result['indicators']['quote'][0];adj=result['indicators']['adjclose'][0]['adjclose'];events=result.get('events',{}).get('splits',{})
+    action_days={dt.datetime.fromtimestamp(e['date'],TZ).date() for kind in ['splits','dividends','capitalGains'] for e in result.get('events',{}).get(kind,{}).values()}
     quotes={}
     for k,ts in enumerate(result['timestamp']):
         day=dt.datetime.fromtimestamp(ts,TZ).date()
@@ -35,23 +55,23 @@ def build(now=None):
             a=row[0].split('/');day=dt.date(int(a[0])+1911,int(a[1]),int(a[2]))
             if day>cutoff or day<min(quotes):continue
             official[day]=row
-    rows=[]
+    rows=[];recovered=[]
     for day,row in sorted(official.items()):
-        if day not in quotes:raise ValueError(f'Yahoo missing actual trading date {day}')
-        k,ts=quotes[day];close=q['close'][k];ac=adj[k]
-        if not close or not ac or not all(math.isfinite(x) and x>0 for x in [close,ac]):raise ValueError(f'Bad adjustment {day}')
-        factor=ac/close;split=1.
+        factor,filled=adjustment_for(day,quotes,q,adj,action_days)
+        if filled:recovered.append(str(day))
+        split=1.
         for e in events.values():
-            if e['date']>ts:split*=e['numerator']/e['denominator']
+            if dt.datetime.fromtimestamp(e['date'],TZ).date()>day:split*=e['numerator']/e['denominator']
         values={name:float(row[col].replace(',',''))/split for name,col in [('open',3),('high',4),('low',5),('close',6)]}
         # A material close mismatch implies adjustment cannot be trusted for this date.
-        if abs(values['close']/close-1)>.01:raise ValueError(f'Yahoo / official close mismatch {day}')
+        close=q['close'][quotes[day][0]] if day in quotes else None
+        if positive(close) and abs(values['close']/close-1)>.01:raise ValueError(f'Yahoo / official close mismatch {day}')
         adjusted={key:round(v*factor,8) for key,v in values.items()}
         if adjusted['low']>min(adjusted['open'],adjusted['close']) or adjusted['high']<max(adjusted['open'],adjusted['close']):raise ValueError(f'Invalid OHLC {day}')
         rows.append({'date':str(day),**adjusted,'factor':factor,'volume':int(row[1].replace(',',''))})
     if len(rows)<100:raise ValueError('Insufficient validated bars')
     if rows[-1]['date']!=str(max(quotes)):raise ValueError('Latest Yahoo / official date mismatch; retry after official close publication')
-    return {'schema':1,'symbol':'0050','generatedAt':now.isoformat(timespec='seconds'),'source':'TWSE OHLC / Yahoo adjustment','note':'收盤後更新；實際交易日期已按證交所逐月核對。','rows':rows}
+    return {'schema':1,'symbol':'0050','generatedAt':now.isoformat(timespec='seconds'),'source':'TWSE OHLC / Yahoo adjustment','note':'收盤後更新；實際交易日期已按證交所逐月核對。'+(' Yahoo缺列已用證交所價格與前後一致調整比例補齊：'+', '.join(recovered) if recovered else ''),'recoveredAdjustmentDates':recovered,'rows':rows}
 
 if __name__=='__main__':
     data=build();target=ROOT/'site/data.js';temp=target.with_suffix('.tmp')

@@ -16,7 +16,7 @@ Updater uses Yahoo2y daily events and adjusted-close ratio plus TWSE month OHLC/
 
 Only completed daily candles: before15:00 Taiwan cutoff yesterday, otherwise today. No trading-calendar guess for next entry date. Output includes dates, factor, OHLC, official volume, source and generation timestamp. This is not a full independent audit of dividend adjustment accuracy or redistribution rights.
 
-Workflow `main`, push/manual/schedule UTC08:35 Mon–Fri. Deploy artifact contains site/ only, pages environment with limited standard permissions. Failed update stops deployment. Workflow doesn't commit refreshed data back to main; currently deployed artifact may be newer than repository seed. Data source throttling is surfaced as failure. Document public scheduled-workflow inactivity disablement.
+Workflow `main`, push/manual/schedule UTC08:35、10:35、13:35 Mon–Fri. Deploy artifact contains site/ only, pages environment with limited standard permissions. Failed update stops deployment. Workflow doesn't commit refreshed data back to main; currently deployed artifact may be newer than repository seed. Data source throttling is surfaced as failure. Document public scheduled-workflow inactivity disablement.
 
 ## Verification / limitations
 
